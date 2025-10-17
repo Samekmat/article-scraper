@@ -27,8 +27,8 @@ logging.basicConfig(
 
 def get_selenium_driver():
     """
-    Tworzy webdriver Selenium w trybie lokalnym (chromedriver) lub przez remote Selenium Grid/standalone.
-    Tryb wybierany przez zmienną środowiskową REMOTE_SELENIUM.
+    Creates webdriver Selenium in local or remote mode.
+    Mode chosen by environment variable REMOTE_SELENIUM.
     """
     remote = os.environ.get("REMOTE_SELENIUM", "false").lower() == "true"
     options = Options()
@@ -45,11 +45,10 @@ def get_selenium_driver():
         return webdriver.Remote(command_executor=selenium_url, options=options)
     else:
         if ChromeDriverManager is None:
-            raise RuntimeError("webdriver_manager musi być zainstalowany lokalnie!")
+            raise RuntimeError("webdriver_manager must be installed locally!")
         return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 def extract_date_text(soup):
-    # [Twój kod extract_date_text bez zmian]
     for tag in soup.find_all('meta'):
         if tag.get('property') in ['article:published_time', 'og:published_time', 'datePublished']:
             if tag.get('content'):
@@ -106,7 +105,7 @@ def scrape_article_selenium(url):
     - Extracts publication date (many formats/edge cases) using extract_date_text()
     - Uses dateparser to normalize to Python datetime object
     - Always sets hour/minute/second to 00:00:00
-    - Handles errors gracefully; logs actions and exceptions
+    - Handles errors gracefully; logs actions and exceptions (timeout, network, content, error pages)
 
     Args:
         url (str): Target article URL.
@@ -120,10 +119,29 @@ def scrape_article_selenium(url):
 
     driver = get_selenium_driver()
     try:
-        driver.get(url)
+        driver.set_page_load_timeout(20)
+        try:
+            driver.get(url)
+        except Exception as e:
+            logging.error(f"Page load timeout or network error for {url}: {e}")
+            return None
         time.sleep(3)
+
         html_content = driver.page_source
         soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Check for 404/500 or error pages in the title or page text
+        page_title = (soup.title.string if soup.title and soup.title.string else "").lower()
+        page_text = soup.get_text(separator=" ", strip=True).lower()
+        error_signatures = [
+            "404", "not found", "error 404", "nie znaleziono", "strona nie została znaleziona",
+            "500", "internal server error", "error 500", "błąd serwera"
+        ]
+        if any(signature in page_title for signature in error_signatures) or \
+           any(signature in page_text for signature in error_signatures) or \
+           len(page_text) < 200:
+            logging.warning(f"Possible error page (404/500) or too short HTML for {url}")
+            return None
 
         title = soup.title.string.strip() if soup.title and soup.title.string else "No title"
         plain_text_content = soup.get_text(separator="\n", strip=True)
@@ -158,7 +176,7 @@ def scrape_article_selenium(url):
         return article
 
     except Exception as e:
-        logging.exception(f"Error occurred in {url}")
+        logging.exception(f"Unexpected error while scraping {url}")
         return None
     finally:
         driver.quit()
