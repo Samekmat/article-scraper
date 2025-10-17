@@ -36,9 +36,11 @@ class Command(BaseCommand):
         provided_urls = options.get("urls") or options.get("input_urls")
         urls = provided_urls if provided_urls else default_urls
         if not provided_urls:
-            self.stdout.write(
-                self.style.NOTICE if hasattr(self.style, "NOTICE") else str
-            )("No URLs provided. Using 4 predefined task URLs.")
+            if hasattr(self.style, "NOTICE"):
+                self.stdout.write(self.style.NOTICE("No URLs provided. Using 4 predefined task URLs."))
+            else:
+                self.stdout.write("No URLs provided. Using 4 predefined task URLs.")
+
         total = len(urls)
 
         for idx, url in enumerate(urls, start=1):
