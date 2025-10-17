@@ -4,13 +4,19 @@ import time
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 import dateparser
+import os
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+try:
+    from webdriver_manager.chrome import ChromeDriverManager
+except ImportError:
+    ChromeDriverManager = None
+
 from .models import Article
 import re
 
-# Ustaw logger: wszystko leci do scraper.log, bez powielania w konsoli
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
@@ -19,24 +25,31 @@ logging.basicConfig(
     ]
 )
 
+def get_selenium_driver():
+    """
+    Tworzy webdriver Selenium w trybie lokalnym (chromedriver) lub przez remote Selenium Grid/standalone.
+    Tryb wybierany przez zmienną środowiskową REMOTE_SELENIUM.
+    """
+    remote = os.environ.get("REMOTE_SELENIUM", "false").lower() == "true"
+    options = Options()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--window-size=1920,1080')
+    chrome_bin = os.environ.get("CHROME_BINARY")
+    if chrome_bin:
+        options.binary_location = chrome_bin
+
+    if remote:
+        selenium_url = os.environ.get("SELENIUM_URL", "http://selenium:4444/wd/hub")
+        return webdriver.Remote(command_executor=selenium_url, options=options)
+    else:
+        if ChromeDriverManager is None:
+            raise RuntimeError("webdriver_manager musi być zainstalowany lokalnie!")
+        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 def extract_date_text(soup):
-    """
-    Extracts the publication date from HTML content, supporting:
-    - <meta> tags: article:published_time, datePublished, og:published_time, etc.
-    - <time> tags: by text or 'datetime' attribute (any recognizable format)
-    - <p>, <span>, <div>: Polish and English textual formats (e.g. '10 września 2025', '10 October 2025')
-    - Relative date phrases in English ('3 hours ago') and Polish ('3 godziny temu')
-    - Dot date format: dd.mm.yyyy
-    - Fallback: scans main text of the page
-
-    Args:
-        soup (BeautifulSoup): Parsed HTML content.
-
-    Returns:
-        str or None: Extracted date string as found in HTML, or None if not found.
-    """
-    # Meta tags
+    # [Twój kod extract_date_text bez zmian]
     for tag in soup.find_all('meta'):
         if tag.get('property') in ['article:published_time', 'og:published_time', 'datePublished']:
             if tag.get('content'):
@@ -45,7 +58,6 @@ def extract_date_text(soup):
             if tag.get('content'):
                 return tag.get('content')
 
-    # <time> tags
     for t in soup.find_all('time'):
         txt = t.get_text(strip=True)
         if txt:
@@ -54,7 +66,6 @@ def extract_date_text(soup):
         if datetime_attr:
             return datetime_attr
 
-    # Patterns for textual/relative dates
     date_patterns = [
         r"\d{1,2} [a-ząćęłńóśźż]+ \d{4}",
         r"\d{1,2} [A-Za-z]+ \d{4}",
@@ -87,7 +98,6 @@ def extract_date_text(soup):
 
     return None
 
-
 def scrape_article_selenium(url):
     """
     Scrapes a single article using Selenium and BeautifulSoup, and saves to an Article model.
@@ -108,16 +118,10 @@ def scrape_article_selenium(url):
         logging.info(f"Article already exists: {url}")
         return None
 
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    driver = get_selenium_driver()
     try:
         driver.get(url)
         time.sleep(3)
-
         html_content = driver.page_source
         soup = BeautifulSoup(html_content, 'html.parser')
 
