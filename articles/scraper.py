@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 import time
 from urllib.parse import urlparse
@@ -8,6 +9,15 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from .models import Article
 import re
+
+# Ustaw logger: wszystko leci do scraper.log, bez powielania w konsoli
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    handlers=[
+        logging.FileHandler("scraper.log", encoding='utf-8'),
+    ]
+)
 
 
 def extract_date_text(soup):
@@ -81,7 +91,7 @@ def extract_date_text(soup):
 def scrape_article_selenium(url):
     """
     Scrapes a single article using Selenium and BeautifulSoup, and saves to an Article model.
-    - Checks if Article with given source_url already exists (skip if yes)
+    - Checks if Article with given source_url already exists (logs and skips if yes)
     - Uses Selenium to render page (including JS), retrieves HTML and plain text
     - Extracts publication date (many formats/edge cases) using extract_date_text()
     - Uses dateparser to normalize to Python datetime object
@@ -95,7 +105,7 @@ def scrape_article_selenium(url):
         Article or None: Saved Article instance, or None if duplicate/error encountered.
     """
     if Article.objects.filter(source_url=url).exists():
-        print(f"Article already exists: {url}")
+        logging.info(f"Article already exists: {url}")
         return None
 
     options = webdriver.ChromeOptions()
@@ -130,7 +140,6 @@ def scrape_article_selenium(url):
             published_date = datetime.now()
 
         published_date = published_date.replace(hour=0, minute=0, second=0, microsecond=0)
-
         source_domain = urlparse(url).netloc
 
         article = Article.objects.create(
@@ -141,11 +150,11 @@ def scrape_article_selenium(url):
             published_at=published_date,
             source_domain=source_domain,
         )
-        print(f"Article saved: {title} ({published_date.strftime('%d.%m.%Y %H:%M:%S')})")
+        logging.info(f"Article saved: {title} ({published_date.strftime('%d.%m.%Y %H:%M:%S')})")
         return article
 
     except Exception as e:
-        print(f"Error occurred in {url}: {e}")
+        logging.exception(f"Error occurred in {url}")
         return None
     finally:
         driver.quit()
