@@ -23,6 +23,7 @@ Django application for scraping articles from web pages using Selenium, with RES
 
 ---
 
+<a id="features"></a>
 ## 🚀 Features
 
 - **Web Scraping**: Extracts articles from web pages using Selenium (supports JavaScript-rendered content)
@@ -37,6 +38,7 @@ Django application for scraping articles from web pages using Selenium, with RES
 
 ---
 
+<a id="tech-stack"></a>
 ## 🛠 Tech Stack
 
 - **Python 3.14+**
@@ -50,6 +52,7 @@ Django application for scraping articles from web pages using Selenium, with RES
 
 ---
 
+<a id="installation"></a>
 ## 📦 Installation
 
 ### Prerequisites
@@ -116,6 +119,7 @@ Django application for scraping articles from web pages using Selenium, with RES
 
 ---
 
+<a id="configuration"></a>
 ## ⚙️ Configuration
 
 ### Environment Variables for Localhost
@@ -168,13 +172,14 @@ CHROME_BINARY=/usr/bin/chromium
 
 ---
 
+<a id="running-the-project"></a>
 ## 🏃 Running the Project
 
 ### Localhost Development
 
 1. Ensure database is available and .env is configured.
 - Create a PostgreSQL database and user that match values in your .env.
-- You can use any tool you prefer (Docker Desktop, pgAdmin, Homebrew, services UI, etc.).
+- You can use any tool you prefer
 - Example .env keys: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD.
 
 2. Apply migrations:
@@ -236,6 +241,7 @@ docker-compose down
 
 ---
 
+<a id="using-the-scraper"></a>
 ## 🕷 Using the Scraper
 
 ### Scrape Articles Command
@@ -281,6 +287,7 @@ tail -f scraper.log
 
 ---
 
+<a id="api-endpoints"></a>
 ## 🌐 API Endpoints
 
 ### Base URL
@@ -389,6 +396,7 @@ curl http://localhost:8000/api/articles/1/
 
 ---
 
+<a id="testing"></a>
 ## 🧪 Testing
 
 ### Run All Tests
@@ -403,6 +411,7 @@ docker-compose exec web python manage.py test
 
 ---
 
+<a id="project-structure"></a>
 ## 📁 Project Structure
 
 ```text
@@ -441,7 +450,7 @@ ArticleScraper/
 ```
 
 ---
-
+<a id="assumptions-and-limitations"></a>
 ## ⚠️ Assumptions and Limitations
 
 ### Assumptions
