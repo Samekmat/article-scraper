@@ -440,13 +440,15 @@ ArticleScraper/
 │   └── wsgi.py
 ├── .env                          # Environment variables (not in git)
 ├── .env.dist                     # Environment template
+├── .gitignore                    # Gitignore file
 ├── docker-compose.yml            # Docker Compose config
 ├── Dockerfile                    # Docker image definition
 ├── manage.py                     # Django management script
 ├── pyproject.toml                # uv dependencies
 ├── requirements.txt              # pip dependencies
-├── scraper.log                   # Scraper logs
-└── README.md                     # This file
+├── scraper.log                   # Scraper logs (not in git)
+├── README.md                     # This file
+└── uv.lock                       # uv lock file
 ```
 
 ---
