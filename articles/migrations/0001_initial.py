@@ -7,20 +7,27 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Article',
+            name="Article",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('title', models.CharField(max_length=500)),
-                ('html_content', models.TextField()),
-                ('plain_text_content', models.TextField()),
-                ('source_url', models.URLField(unique=True)),
-                ('published_at', models.DateTimeField()),
-                ('source_domain', models.CharField(db_index=True, max_length=255)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("title", models.CharField(max_length=500)),
+                ("html_content", models.TextField()),
+                ("plain_text_content", models.TextField()),
+                ("source_url", models.URLField(unique=True)),
+                ("published_at", models.DateTimeField()),
+                ("source_domain", models.CharField(db_index=True, max_length=255)),
             ],
         ),
     ]

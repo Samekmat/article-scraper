@@ -1,29 +1,32 @@
 import logging
-from datetime import datetime
-import time
-from urllib.parse import urlparse
-from bs4 import BeautifulSoup
-import dateparser
 import os
+import time
+from datetime import datetime
+from urllib.parse import urlparse
+
+import dateparser
+from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+
 try:
     from webdriver_manager.chrome import ChromeDriverManager
 except ImportError:
     ChromeDriverManager = None
 
-from .models import Article
 import re
 
+from .models import Article
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
-        logging.FileHandler("scraper.log", encoding='utf-8'),
-    ]
+        logging.FileHandler("scraper.log", encoding="utf-8"),
+    ],
 )
+
 
 def get_selenium_driver():
     """
@@ -32,10 +35,10 @@ def get_selenium_driver():
     """
     remote = os.environ.get("REMOTE_SELENIUM", "false").lower() == "true"
     options = Options()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.add_argument('--window-size=1920,1080')
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--window-size=1920,1080")
     chrome_bin = os.environ.get("CHROME_BINARY")
     if chrome_bin:
         options.binary_location = chrome_bin
@@ -46,22 +49,29 @@ def get_selenium_driver():
     else:
         if ChromeDriverManager is None:
             raise RuntimeError("webdriver_manager must be installed locally!")
-        return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        return webdriver.Chrome(
+            service=Service(ChromeDriverManager().install()), options=options
+        )
+
 
 def extract_date_text(soup):
-    for tag in soup.find_all('meta'):
-        if tag.get('property') in ['article:published_time', 'og:published_time', 'datePublished']:
-            if tag.get('content'):
-                return tag.get('content')
-        if tag.get('name') in ['date', 'publishdate', 'pubdate']:
-            if tag.get('content'):
-                return tag.get('content')
+    for tag in soup.find_all("meta"):
+        if tag.get("property") in [
+            "article:published_time",
+            "og:published_time",
+            "datePublished",
+        ]:
+            if tag.get("content"):
+                return tag.get("content")
+        if tag.get("name") in ["date", "publishdate", "pubdate"]:
+            if tag.get("content"):
+                return tag.get("content")
 
-    for t in soup.find_all('time'):
+    for t in soup.find_all("time"):
         txt = t.get_text(strip=True)
         if txt:
             return txt
-        datetime_attr = t.get('datetime')
+        datetime_attr = t.get("datetime")
         if datetime_attr:
             return datetime_attr
 
@@ -76,7 +86,7 @@ def extract_date_text(soup):
     ]
     relative_words = r"(yesterday|today|wczoraj|dzisiaj)"
 
-    for tag in soup.find_all(['p', 'span', 'div']):
+    for tag in soup.find_all(["p", "span", "div"]):
         txt = tag.get_text(strip=True)
         for pat in date_patterns:
             match = re.search(pat, txt, re.IGNORECASE)
@@ -86,7 +96,7 @@ def extract_date_text(soup):
             return txt
 
     # Fallback: scan the main text (sometimes date in header/footer)
-    main_text = soup.get_text(separator=' ', strip=True)
+    main_text = soup.get_text(separator=" ", strip=True)
     for pat in date_patterns:
         match = re.search(pat, main_text, re.IGNORECASE)
         if match:
@@ -96,6 +106,7 @@ def extract_date_text(soup):
         return match.group(0)
 
     return None
+
 
 def scrape_article_selenium(url):
     """
@@ -128,22 +139,39 @@ def scrape_article_selenium(url):
         time.sleep(3)
 
         html_content = driver.page_source
-        soup = BeautifulSoup(html_content, 'html.parser')
+        soup = BeautifulSoup(html_content, "html.parser")
 
         # Check for 404/500 or error pages in the title or page text
-        page_title = (soup.title.string if soup.title and soup.title.string else "").lower()
+        page_title = (
+            soup.title.string if soup.title and soup.title.string else ""
+        ).lower()
         page_text = soup.get_text(separator=" ", strip=True).lower()
         error_signatures = [
-            "404", "not found", "error 404", "nie znaleziono", "strona nie została znaleziona",
-            "500", "internal server error", "error 500", "błąd serwera"
+            "404",
+            "not found",
+            "error 404",
+            "nie znaleziono",
+            "strona nie została znaleziona",
+            "500",
+            "internal server error",
+            "error 500",
+            "błąd serwera",
         ]
-        if any(signature in page_title for signature in error_signatures) or \
-           any(signature in page_text for signature in error_signatures) or \
-           len(page_text) < 200:
-            logging.warning(f"Possible error page (404/500) or too short HTML for {url}")
+        if (
+            any(signature in page_title for signature in error_signatures)
+            or any(signature in page_text for signature in error_signatures)
+            or len(page_text) < 200
+        ):
+            logging.warning(
+                f"Possible error page (404/500) or too short HTML for {url}"
+            )
             return None
 
-        title = soup.title.string.strip() if soup.title and soup.title.string else "No title"
+        title = (
+            soup.title.string.strip()
+            if soup.title and soup.title.string
+            else "No title"
+        )
         plain_text_content = soup.get_text(separator="\n", strip=True)
         published_str = extract_date_text(soup)
 
@@ -153,15 +181,17 @@ def scrape_article_selenium(url):
                 published_str,
                 languages=["pl", "en"],
                 settings={
-                    'TIMEZONE': 'Europe/Warsaw',
-                    'RETURN_AS_TIMEZONE_AWARE': False,
-                    'RELATIVE_BASE': datetime.now()
-                }
+                    "TIMEZONE": "Europe/Warsaw",
+                    "RETURN_AS_TIMEZONE_AWARE": False,
+                    "RELATIVE_BASE": datetime.now(),
+                },
             )
         if not published_date:
             published_date = datetime.now()
 
-        published_date = published_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        published_date = published_date.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         source_domain = urlparse(url).netloc
 
         article = Article.objects.create(
@@ -172,7 +202,9 @@ def scrape_article_selenium(url):
             published_at=published_date,
             source_domain=source_domain,
         )
-        logging.info(f"Article saved: {title} ({published_date.strftime('%d.%m.%Y %H:%M:%S')})")
+        logging.info(
+            f"Article saved: {title} ({published_date.strftime('%d.%m.%Y %H:%M:%S')})"
+        )
         return article
 
     except Exception as e:
