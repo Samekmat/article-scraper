@@ -252,156 +252,143 @@ class DateParsingIntegrationTest(SimpleTestCase):
 
 
 class ScrapeArticleSeleniumTest(TestCase):
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_create_article_successfully(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_create_article_successfully(self, mock_get_driver):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
+        mock_get_driver.return_value = mock_driver
         mock_driver.page_source = '''
             <html>
                 <head><title>Test Article</title></head>
                 <body>
                     <meta property="article:published_time" content="2025-10-15T10:00:00Z">
-                    <p>Article content here.</p>
+                    <p>Article content here. {}</p>
                 </body>
             </html>
-        '''
-        
+        '''.format("A" * 250)
         url = "https://example.com/article"
         article = scrape_article_selenium(url)
-        
         self.assertIsNotNone(article)
         self.assertEqual(article.title, "Test Article")
         self.assertEqual(article.source_url, url)
         self.assertEqual(article.source_domain, "example.com")
         self.assertEqual(article.published_at.date(), datetime(2025, 10, 15).date())
-
         self.assertEqual(article.published_at.hour, 0)
         self.assertEqual(article.published_at.minute, 0)
-        
         mock_driver.get.assert_called_once_with(url)
         mock_driver.quit.assert_called_once()
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_skip_duplicate_url(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_skip_duplicate_url(self, mock_get_driver):
         url = "https://example.com/duplicate"
         Article.objects.create(
             title="Existing",
-            html_content="content",
+            html_content="content " + "A" * 250,
             plain_text_content="text",
             source_url=url,
             source_domain="example.com",
             published_at=datetime.now()
         )
-        
         result = scrape_article_selenium(url)
-        
         self.assertIsNone(result)
-        mock_chrome.assert_not_called()
+        mock_get_driver.assert_not_called()
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_use_current_date_when_no_date_found(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_use_current_date_when_no_date_found(self, mock_get_driver):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
-        mock_driver.page_source = '<html><head><title>No Date</title></head><body>Content</body></html>'
-        
+        mock_get_driver.return_value = mock_driver
+        mock_driver.page_source = '''
+            <html>
+                <head><title>No Date</title></head>
+                <body>Content without date. {}</body>
+            </html>
+        '''.format("X" * 300)
         article = scrape_article_selenium("https://example.com/nodate")
-        
         self.assertIsNotNone(article)
-
         self.assertEqual(article.published_at.date(), datetime.now().date())
         self.assertEqual(article.published_at.hour, 0)
         self.assertEqual(article.published_at.minute, 0)
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_handle_missing_title(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_handle_missing_title(self, mock_get_driver):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
-        mock_driver.page_source = '<html><body>Content without title</body></html>'
-        
+        mock_get_driver.return_value = mock_driver
+        mock_driver.page_source = '''
+            <html>
+                <body>Content without title. {}</body>
+            </html>
+        '''.format("Z" * 300)
         article = scrape_article_selenium("https://example.com/notitle")
-        
         self.assertEqual(article.title, "No title")
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_extract_domain_from_url(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_extract_domain_from_url(self, mock_get_driver):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
-        mock_driver.page_source = '<html><head><title>Test</title></head></html>'
-        
+        mock_get_driver.return_value = mock_driver
+        mock_driver.page_source = '<html><head><title>Test</title></head><body>{}</body></html>'.format("B" * 250)
         article = scrape_article_selenium("https://subdomain.example.com/path/article?param=value")
-        
         self.assertEqual(article.source_domain, "subdomain.example.com")
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_normalize_datetime_to_midnight(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_normalize_datetime_to_midnight(self, mock_get_driver):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
+        mock_get_driver.return_value = mock_driver
         mock_driver.page_source = '''
             <html>
                 <head><title>Time Test</title></head>
-                <body><meta property="article:published_time" content="2025-05-20T14:35:22Z"></body>
+                <body>
+                  <meta property="article:published_time" content="2025-05-20T14:35:22Z">
+                  {}
+                </body>
             </html>
-        '''
-        
+        '''.format("C" * 220)
         article = scrape_article_selenium("https://example.com/timetest")
-        
         self.assertEqual(article.published_at.hour, 0)
         self.assertEqual(article.published_at.minute, 0)
         self.assertEqual(article.published_at.second, 0)
         self.assertEqual(article.published_at.microsecond, 0)
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_return_none_on_exception(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_return_none_on_exception(self, mock_get_driver):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
+        mock_get_driver.return_value = mock_driver
         mock_driver.get.side_effect = Exception("Network error")
-        
         article = scrape_article_selenium("https://example.com/error")
-        
         self.assertIsNone(article)
-
         mock_driver.quit.assert_called_once()
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_always_quit_driver_even_on_error(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_always_quit_driver_even_on_error(self, mock_get_driver):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
+        mock_get_driver.return_value = mock_driver
         mock_driver.get.side_effect = Exception("Error")
-        
         scrape_article_selenium("https://example.com/error")
-
         mock_driver.quit.assert_called_once()
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
     @patch('articles.scraper.time.sleep')
-    def test_should_wait_for_page_load(self, mock_sleep, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_wait_for_page_load(self, mock_get_driver, mock_sleep):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
-        mock_driver.page_source = '<html><head><title>Test</title></head></html>'
-        
+        mock_get_driver.return_value = mock_driver
+        mock_driver.page_source = '<html><head><title>Test</title></head><body>{}</body></html>'.format("D" * 300)
         scrape_article_selenium("https://example.com/test")
-        
         mock_sleep.assert_called_once_with(3)
 
-    @patch('articles.scraper.webdriver.Chrome')
-    @patch('articles.scraper.ChromeDriverManager')
-    def test_should_store_both_html_and_plain_text(self, mock_driver_manager, mock_chrome):
+    @patch('articles.scraper.get_selenium_driver')
+    def test_should_store_both_html_and_plain_text(self, mock_get_driver):
         mock_driver = MagicMock()
-        mock_chrome.return_value = mock_driver
-        html = '<html><head><title>Test</title></head><body><p>Paragraph 1</p><p>Paragraph 2</p></body></html>'
+        mock_get_driver.return_value = mock_driver
+        html = '''
+        <html>
+            <head><title>Test</title></head>
+            <body>
+                <p>Paragraph 1</p>
+                <p>Paragraph 2</p>
+                {}
+            </body>
+        </html>
+        '''.format("E" * 210)
         mock_driver.page_source = html
-        
         article = scrape_article_selenium("https://example.com/test")
-        
         self.assertIn('<p>Paragraph 1</p>', article.html_content)
         self.assertIn('Paragraph 1', article.plain_text_content)
         self.assertIn('Paragraph 2', article.plain_text_content)
